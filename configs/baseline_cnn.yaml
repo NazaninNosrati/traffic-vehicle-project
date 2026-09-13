@@ -1,0 +1,31 @@
+# Example config — copy this per experiment (e.g. configs/dropout_0.3.yaml)
+# and change only the factor(s) under test.
+
+experiment_name: baseline_cnn
+seed: 42
+
+data:
+  root: data/raw/dataset
+  image_size: 128
+  batch_size: 32
+  val_fraction: 0.2
+
+model:
+  type: cnn_baseline   # cnn_baseline | resnet18_feature_extract | resnet18_finetune
+  dropout_p: 0.0
+  pool_type: max        # max | avg
+
+training:
+  num_epochs: 30
+  optimizer: adam
+  learning_rate: 0.001
+  weight_decay: 0.0
+  loss: cross_entropy    # cross_entropy | bce
+  scheduler: none         # none | step_lr | reduce_on_plateau
+
+sampler:
+  balanced: false
+
+paths:
+  checkpoint: checkpoints/baseline_cnn.pt
+  log: logs/baseline_cnn.csv
