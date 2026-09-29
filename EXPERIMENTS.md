@@ -1,18 +1,12 @@
 # Experiment Log
 
-Append one entry per run, right after you get the results — not at the end of the
-week. Be specific: what changed, what stayed fixed, what happened, and why you
-think it happened.
+## — Data audit: duplicate & label-conflict detection
 
-Entry template (copy per experiment):
-
-```
-## YYYY-MM-DD — <short experiment name>
-
-**Changed:** <the one factor you varied>
-**Fixed:** <architecture / split / seed / budget kept constant>
-**Config:** configs/<file>.yaml
-**Result:** val_acc=?, macro_P=?, macro_R=?, macro_F1=?
-**Lowest-recall class:** ?  **Lowest-precision class:** ?
-**Notes:** <why do you think this happened?>
-```
+Changed: n/a (data cleaning stage, not a training run)
+Fixed: n/a
+Method: MD5 (exact-copy) + average hash (hash_size=16, perceptual) across train/test/unclean (4360 images total)
+Result: MD5: 24 duplicate groups, 1 label conflict. Average hash: 46 candidate groups, 8 label-conflict candidates.
+Findings:
+- MD5 conflict: same Nissan pickup image labeled vanet in train and neysan in unclean — evidence that vanet in train was mislabeling actual neysan vehicles. Removed from train/vanet, kept as neysan in unclean.
+- Average hash: most of the 8 candidate groups were false positives (similar camera angle/background but different vehicle — e.g. two taxis with different livery, or taxi vs. sedan). Perceptual hash matches overall brightness pattern, not vehicle identity — none of these removed without manual confirmation.
+Notes: hash_size=16 used (not 8) to reduce false-positive rate on near-identical camera frames.
