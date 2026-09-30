@@ -24,3 +24,12 @@ Decisions:
 - Hard pairs (minibus/autobus, kamyun/kamyunet) were NOT bulk-relabeled by eye; only clearly wrong cases were moved. These pairs are left for the confusion-matrix / pair_confusion analysis.
 Limitations: Distance to centroid flags visually unusual images, not necessarily wrong labels. Classes with high internal variety (e.g. savari) produce more false suspects. The final decision on every image was manual.
 Notes: <_>
+
+## — Train/validation split
+
+**Changed:** n/a (data preparation)
+**Method:** StratifiedShuffleSplit on cleaned train, test_size=0.2, seed=42. Split exported as image folders (data/processed/train, data/processed/val, copied from raw) plus file lists (train_files.csv, val_files.csv). Test folder frozen; its file list + MD5 saved to test_files.csv.
+**Result:** train=<1539>, val=<385>, test=<400>.
+**Decisions:** unclean not used in training (analysis only, day 5). No Nissan/neysan images in train or val.
+**Limitations:** val has only ~<50> images per class, so small metric differences between experiments are within noise.
+**Notes:** 0 = ambulance --> 44 , 4 = minibus --> 45

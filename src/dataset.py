@@ -1,10 +1,12 @@
 import hashlib
 import os
+import shutil
 
 import numpy as np
 import torch
 from PIL import Image
-from torchvision import models, transforms
+from sklearn.model_selection import StratifiedShuffleSplit
+from torchvision import datasets, models, transforms
 from tqdm import tqdm
 
 
@@ -77,3 +79,47 @@ def get_embedding(filepath):
     with Image.open(filepath) as img:
         tensor = embed_transform(img.convert('RGB')).unsqueeze(0)
     return _get_extractor()(tensor).squeeze(0).numpy()
+
+
+
+def make_train_val_split(df, val_size=0.2, seed=42):
+    train_all = df[df['split'] == 'train'].reset_index(drop=True)
+    sss = StratifiedShuffleSplit(n_splits=1, test_size=val_size, random_state=seed)
+    tr_idx, va_idx = next(sss.split(train_all, train_all['class']))
+    return (train_all.iloc[tr_idx].reset_index(drop=True),
+            train_all.iloc[va_idx].reset_index(drop=True))
+
+
+def export_split(part_df, out_root):
+    for _, row in part_df.iterrows():
+        dest_dir = os.path.join(out_root, row['class'])
+        os.makedirs(dest_dir, exist_ok=True)
+        shutil.copy2(row['path'], os.path.join(dest_dir, row['filename']))
+
+
+def build_processed(train_part, val_part, out_root):
+    for name in ('train', 'val'):
+        shutil.rmtree(os.path.join(out_root, name), ignore_errors=True)
+    export_split(train_part, os.path.join(out_root, 'train'))
+    export_split(val_part, os.path.join(out_root, 'val'))
+
+
+def md5_overlap(a_df, b_df):
+    return len(set(a_df['md5']) & set(b_df['md5']))
+
+
+def check_no_leakage(train_part, val_part, test_part):
+    result = {
+        'train∩val': md5_overlap(train_part, val_part),
+        'train∩test': md5_overlap(train_part, test_part),
+        'val∩test': md5_overlap(val_part, test_part),
+    }
+    return result
+
+
+def make_imagefolders(processed_root, test_root):
+    tr = datasets.ImageFolder(os.path.join(processed_root, 'train'))
+    va = datasets.ImageFolder(os.path.join(processed_root, 'val'))
+    te = datasets.ImageFolder(test_root)
+    assert tr.class_to_idx == va.class_to_idx == te.class_to_idx, "class_to_idx mismatch"
+    return tr, va, te
