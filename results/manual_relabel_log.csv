@@ -1,2 +1,13 @@
-filename,old_class,new_class,reason,date
-<اسم فایل>,vanet,(removed),duplicate of unclean/neysan - train copy mislabeled,2026-09-29
+filename,old_class,new_class,reason
+<214844236> , vanet(removed) , duplicate of unclean/neysan - train copy mislabeled
+<203730891> , savari , taxi , wrong class
+<206803325> , savari , taxi , wrong class
+<2161918324> , taxi , savari , wrong class
+<218147453> , taxi , _ , delete , wrong_label
+<218268791> , taxi , _ , delete , wrong_label
+<216191824> , savari , _ , delete , wrong_label
+<217712958>, minibus , _ , delete , unusual
+<215722954>, minibus , _ , delete , unusual
+<217025806>, minibus , _ , delete , unusual
+<205763607>, minibus , _ , delete , unusual
+<203677139>, minibus , _ , delete , unusual

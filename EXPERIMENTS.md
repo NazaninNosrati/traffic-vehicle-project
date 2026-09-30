@@ -10,3 +10,17 @@ Findings:
 - MD5 conflict: same Nissan pickup image labeled vanet in train and neysan in unclean — evidence that vanet in train was mislabeling actual neysan vehicles. Removed from train/vanet, kept as neysan in unclean.
 - Average hash: most of the 8 candidate groups were false positives (similar camera angle/background but different vehicle — e.g. two taxis with different livery, or taxi vs. sedan). Perceptual hash matches overall brightness pattern, not vehicle identity — none of these removed without manual confirmation.
 Notes: hash_size=16 used (not 8) to reduce false-positive rate on near-identical camera frames.
+
+##  — Data audit: mislabel suspects via ResNet18 embeddings
+
+Changed: n/a (data cleaning stage, not a training run)
+Fixed: n/a
+Method: ImageNet-pretrained ResNet18 (no training on our data, fc replaced by Identity) used as a fixed feature extractor. For each train image, a 512-d embedding was computed; per class, the centroid was calculated and each image's Euclidean distance to its own class centroid was recorded. The 15 farthest images per class were reviewed by eye.
+Why: Hashing only finds duplicates; it cannot find a unique image that was placed in the wrong class.
+Result: <1928> train images embedded, <5> unreadable/skipped. Reviewed 15 suspects x 8 classes. Confirmed problems: <3> wrong-class images moved, <3> images excluded (belong to no class: e.g. van, police car, hearse), <15> left in place (unusual but valid: dark, odd angle).
+Decisions:
+- Images matching no class were moved to data/excluded/ (not deleted) and logged in results/manual_relabel_log.csv with a reason.
+- Dark or low-quality taxis were kept: color is not the class definition, and such images occur in real deployment.
+- Hard pairs (minibus/autobus, kamyun/kamyunet) were NOT bulk-relabeled by eye; only clearly wrong cases were moved. These pairs are left for the confusion-matrix / pair_confusion analysis.
+Limitations: Distance to centroid flags visually unusual images, not necessarily wrong labels. Classes with high internal variety (e.g. savari) produce more false suspects. The final decision on every image was manual.
+Notes: <_>
