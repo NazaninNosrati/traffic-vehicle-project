@@ -41,3 +41,17 @@ Notes: <_>
 **Data/transforms:** 128x128 input, ImageNet mean/std normalization, no augmentation (train and val use the same transform). Train from data/processed/train, val from data/processed/val. Test not loaded.
 **Seed:** 42 (random, numpy, torch; DataLoader shuffle uses a seeded generator).
 **Notes:** BatchNorm left out on purpose to keep the baseline minimal; num_workers=0 (Windows).
+
+## Exp 01 — CNN baseline: results
+
+**Changed:** n/a (baseline run)
+**Budget:** <40> epochs, Adam lr=1e-3 (fixed), batch 32, no scheduler.
+**Best checkpoint:** epoch <40>, val macro-F1 = <0.69>, val loss at best = <0.91>.
+**Final epoch:** train loss < 0.6>, val loss <0.91>, val macro-F1 <0.69>.
+
+## Exp 02 — CNN baseline: results
+
+**Changed:** n/a (baseline run)
+**Budget:** <80> epochs, Adam lr=1e-3 (fixed), batch 32, no scheduler.
+**Best checkpoint:** epoch <40>, val macro-F1 = <0.75>, val loss at best = <0.76>.
+**Final epoch:** train loss <0.31>, val loss <0.75>, val macro-F1 <0.76>.

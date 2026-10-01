@@ -15,6 +15,6 @@ def get_device():
 
 SEED = 42
 set_seed(SEED)
-device= get_device()
-img_size = 128
+
+
 
