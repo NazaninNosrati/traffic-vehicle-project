@@ -1,3 +1,20 @@
-"""
-General utilities: reproducibility (seed), config loading.
-"""
+import random
+
+import numpy as np
+import torch
+
+
+def set_seed (seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+def get_device():
+    return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+SEED = 42
+set_seed(SEED)
+device= get_device()
+img_size = 128
+

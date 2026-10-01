@@ -33,3 +33,11 @@ Notes: <_>
 **Decisions:** unclean not used in training (analysis only, day 5). No Nissan/neysan images in train or val.
 **Limitations:** val has only ~<50> images per class, so small metric differences between experiments are within noise.
 **Notes:** 0 = ambulance --> 44 , 4 = minibus --> 45
+
+## — CNN baseline: setup
+
+**Changed:** n/a (baseline definition)
+**Model:** CNNBaseline, 3 blocks (Conv3x3 -> ReLU -> MaxPool2), channels 32/64/128, global average pooling, Dropout(0), Linear(128, 8); 94,280 parameters.
+**Data/transforms:** 128x128 input, ImageNet mean/std normalization, no augmentation (train and val use the same transform). Train from data/processed/train, val from data/processed/val. Test not loaded.
+**Seed:** 42 (random, numpy, torch; DataLoader shuffle uses a seeded generator).
+**Notes:** BatchNorm left out on purpose to keep the baseline minimal; num_workers=0 (Windows).
