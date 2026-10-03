@@ -12,7 +12,7 @@ from src.dataset import make_loaders  , simulate_imbalance
 from src.evaluate import predict_loader, summarize
 from src.model import CNNBaseline
 from src.sampler import BalancedBatchSampler
-from src.train import fit, make_scheduler
+from src.train import fit, make_scheduler  , make_criterion 
 from src.utils import set_seed
 
 
@@ -33,7 +33,7 @@ def save_result(row, results_path):
 def run_experiment(name, device, paths, epochs=20, img_size=128, batch_size=32,
                    augment=False, dropout_p=0.0, pool_type='max',
                    weight_decay=0.0, scheduler_name='none', lr=1e-3, seed=42,
-                   imbalance=None, balanced=False):
+                   imbalance=None, balanced=False , loss = 'ce'):
     set_seed(seed)
     train_ds, _, _, val_loader = make_loaders(
         paths['data'], img_size, batch_size, seed, augment)
@@ -55,12 +55,12 @@ def run_experiment(name, device, paths, epochs=20, img_size=128, batch_size=32,
     model = CNNBaseline(dropout_p=dropout_p, pool_type=pool_type).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler, step_on_val = make_scheduler(scheduler_name, optimizer)
-    criterion = nn.CrossEntropyLoss()
+    criterion = make_criterion(loss , len(train_ds.classes))
 
     config = dict(augment=augment, dropout_p=dropout_p, pool_type=pool_type,
                   weight_decay=weight_decay, scheduler=scheduler_name, lr=lr,
                   epochs=epochs, batch_size=batch_size, optimizer='AdamW',
-                  imbalance=str(imbalance), balanced=balanced)
+                  imbalance=str(imbalance), balanced=balanced , loss=loss)
     meta = {'architecture': 'CNNBaseline', 'class_to_idx': train_ds.class_to_idx,
             'img_size': img_size, 'seed': seed, 'config': config}
     ckpt = os.path.join(paths['ckpt_dir'], f'{name}.pt')

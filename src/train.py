@@ -2,6 +2,8 @@ import os
 
 import pandas as pd
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from sklearn.metrics import f1_score
 
 
@@ -42,6 +44,20 @@ def make_scheduler(name, optimizer):
             optimizer, mode='min', factor=0.5, patience=3), True
     return None, False
 
+class BCEOneHot(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.num_classes = num_classes
+        self.bce = nn.BCEWithLogitsLoss()
+
+    def forward(self, logits, targets):
+        onehot = F.one_hot(targets, self.num_classes).float()
+        return self.bce(logits, onehot)
+
+def make_criterion(name, num_classes):
+    if name == 'bce':
+        return BCEOneHot(num_classes)
+    return nn.CrossEntropyLoss()
 
 def fit(model, train_loader, val_loader, optimizer, criterion, device,
         num_epochs, ckpt_path, log_path, meta=None,

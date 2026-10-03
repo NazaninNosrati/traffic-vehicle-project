@@ -44,3 +44,12 @@ def summarize(trues, preds, class_names):
         row[f'support_{c}'] = int(support[i])
     
     return row
+
+@torch.no_grad()
+def get_logits(model, loader, device):
+    model.eval()
+    logits, trues = [], []
+    for images, targets in loader:
+        logits.append(model(images.to(device)).cpu())
+        trues.extend(targets.tolist())
+    return torch.cat(logits), torch.tensor(trues)

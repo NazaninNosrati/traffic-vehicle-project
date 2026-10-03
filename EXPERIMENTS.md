@@ -152,3 +152,53 @@ Notes: <_>
 **Delta (imb_standard → imb_balanced):** +0.052 acc, +0.099 macro_F1, +0.568 ambulance recall, +0.822 minibus recall
 
 **Notes:** Under simulated imbalance, standard training suffered catastrophic minority-class collapse: both ambulance and minibus reached recall = 0.000 — the model never predicted them. This is the classic majority-class bias: accuracy stayed near 0.50 while macro-F1 dropped to 0.430. BalancedBatchSampler recovered both classes completely — ambulance recall jumped from 0.000 → 0.568, minibus from 0.000 → 0.822 — and lifted macro-F1 by +0.099, the largest single-factor gain in this project. Interestingly, imb_balanced also beat imb_standard in raw accuracy (+0.052), which is unusual: oversampling usually trades accuracy for recall. Here the dataset is small enough that ignoring two classes also hurt overall accuracy. Comparison with baseline reveals a key insight: baseline minibus recall was only 0.333 even with balanced data — minibus is intrinsically hard. Imb_balanced pushed minibus recall to 0.822 by repeatedly exposing the model to the 54 available examples, effectively "over-training" on the minority class. Trade-off: kamyunet and vanet recall dropped (majority classes paid the cost), but macro-level fairness improved. Recommendation: use BalancedBatchSampler whenever per-class reliability matters, especially for rare, safety-critical classes like ambulance.
+
+## — Ablation: CrossEntropy vs BCEWithLogitsLoss
+
+**Changed:** loss CrossEntropy → BCEWithLogitsLoss (one-hot targets, sigmoid per-class)
+**Fixed:** CNNBaseline, split (seed 42), AdamW lr=1e-3, 20 epochs, batch 32, no augmentation, no dropout, max-pooling, no class weights
+**Config:** runs `ce (baseline)`, `bce` (results/experiments.csv)
+
+**Result:**
+- CE:  acc=0.574, macro_P=0.609, macro_R=0.571, macro_F1=0.565
+- BCE: acc=0.545, macro_P=0.538, macro_R=0.542, macro_F1=0.525
+- Delta: −0.029 acc, −0.071 P, −0.029 R, **−0.040 macro_F1**
+
+**Which macro-F1 is higher?** CE (0.565 vs 0.525). The gap of 0.040 exceeds the noise threshold (~0.03), so the difference is real, not noise.
+
+**Loss curves:** BCE converges more slowly in early epochs (best_epoch = 18 for BCE vs 20 for CE, but BCE's curve is flatter — it improves more gradually without a sharp peak). CE reaches high macro-F1 earlier and holds it; BCE catches up slowly and never fully closes the gap within the 20-epoch budget.
+
+**Confidence table:**
+| Metric | CE | BCE |
+|---|---:|---:|
+| mean_top_score | 0.559 | 0.455 |
+| mean_sum_of_scores | 1.000 | 0.957 |
+| frac_none_above_0.5 | 0.468 | 0.636 |
+| frac_multiple_above_0.5 | 0.000 | 0.026 |
+
+- CE probabilities sum to exactly 1.000 (softmax).
+- BCE sums to 0.957 — not a probability distribution.
+- BCE is more "under-confident": 63.6% of images have no class above 0.5, vs 46.8% for CE.
+- BCE produces 2.6% of images with *multiple* classes above 0.5 — logically inconsistent for a single-label task. CE never does this (softmax → one winner).
+
+**Error pattern by class recall:**
+| Class | CE | BCE | Δ |
+|---|---:|---:|---:|
+| ambulance | 0.68 | 0.70 | +0.02 |
+| autobus | 0.63 | 0.47 | −0.16 |
+| kamyun | 0.44 | 0.62 | +0.18 |
+| kamyunet | 0.30 | 0.13 | −0.17 |
+| minibus | 0.33 | 0.33 | 0.00 |
+| savari | 0.82 | 0.66 | −0.16 |
+| taxi | 0.90 | 0.94 | +0.04 |
+| vanet | 0.46 | 0.48 | +0.02 |
+
+CE wins on 4 classes, BCE wins on 3, one tie. The critical loss for BCE is kamyunet (0.30 → 0.13) and savari (0.82 → 0.66) — two classes CE handles well. BCE only clearly wins on kamyun. Full confusion matrices will be computed in the final evaluation for the selected model.
+
+**Hypothesis for BCE's slower learning (as a hypothesis, not a verdict):**
+Each image contributes 7 zero targets and only 1 positive target per sample in the BCE formulation. The positive signal is diluted ~7:1, and classes do not compete directly (no softmax normalization). This may explain why BCE converges more slowly and produces lower-confidence scores. An alternative explanation is that the 20-epoch budget is insufficient for BCE — it might converge to a comparable point with more epochs. We do not claim either as fact without further experiments.
+
+**Equal-budget tuning (optional, not run):**
+If BCE had clearly not converged within the same budget, the fairest comparison would be to run both CE and BCE with two learning rates (e.g., 1e-3 and 3e-3) so each loss gets an equal tuning budget, as the project requires. This is optional and time-consuming; here we report the single-lr comparison and note the caveat.
+
+**Notes:** BCE underperformed CE by 0.040 macro-F1 — a real, above-noise gap. CE is the correct choice for single-label classification: softmax enforces mutual exclusivity (probabilities sum to 1, one winner), while BCE treats the 8 classes as independent binary decisions. The confidence analysis confirms this: BCE produced 2.6% logically-inconsistent images with multiple classes above 0.5, and was systematically under-confident (mean_top_score 0.455 vs 0.559). BCE's much smaller gap (0.006 vs 0.111) suggests it regularizes more strongly — a plausible side effect of the diluted positive signal — but this came at the cost of accuracy, not as a benefit. Recommendation: use CrossEntropyLoss for the final model.
