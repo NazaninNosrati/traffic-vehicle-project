@@ -137,7 +137,7 @@ def get_transforms(img_size, augment=False):
     train_tf = transforms.Compose([
         transforms.RandomResizedCrop(img_size, scale=(0.8, 1.0)),
         transforms.RandomHorizontalFlip(),
-        transforms.RandomRotation(5),
+        transforms.RandomRotation(10),
         transforms.ColorJitter(brightness=0.3, contrast=0.3),
         transforms.ToTensor(), norm])
     return train_tf, eval_tf
