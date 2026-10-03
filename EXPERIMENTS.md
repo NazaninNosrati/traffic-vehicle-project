@@ -202,3 +202,23 @@ Each image contributes 7 zero targets and only 1 positive target per sample in t
 If BCE had clearly not converged within the same budget, the fairest comparison would be to run both CE and BCE with two learning rates (e.g., 1e-3 and 3e-3) so each loss gets an equal tuning budget, as the project requires. This is optional and time-consuming; here we report the single-lr comparison and note the caveat.
 
 **Notes:** BCE underperformed CE by 0.040 macro-F1 — a real, above-noise gap. CE is the correct choice for single-label classification: softmax enforces mutual exclusivity (probabilities sum to 1, one winner), while BCE treats the 8 classes as independent binary decisions. The confidence analysis confirms this: BCE produced 2.6% logically-inconsistent images with multiple classes above 0.5, and was systematically under-confident (mean_top_score 0.455 vs 0.559). BCE's much smaller gap (0.006 vs 0.111) suggests it regularizes more strongly — a plausible side effect of the diluted positive signal — but this came at the cost of accuracy, not as a benefit. Recommendation: use CrossEntropyLoss for the final model.
+
+## — Ablation: CrossEntropy vs BCEWithLogitsLoss (equal-budget tuning)
+
+**Changed:** loss {CE, BCE} × lr {1e-3, 3e-3} — 4 runs, equal budget each
+**Fixed:** CNNBaseline, split (seed 42), AdamW, 20 epochs, batch 32, no aug, no dropout, max-pool
+**Config:** runs `ce_lr1e-3`, `ce_lr3e-3`, `bce_lr1e-3`, `bce_lr3e-3`
+
+**Result:**
+| loss | lr | macro_F1 | accuracy |
+|---|---|---|---|
+| CE | 1e-3 | 0.567 | 0.579 |
+| CE | 3e-3 | 0.596 | 0.608 |
+| BCE | 1e-3 | 0.525 | 0.545 |
+| **BCE** | **3e-3** | **0.631** | **0.631** |
+
+**Winner:** BCE with lr=3e-3 (0.631) — beats best CE (0.596) by +0.035.
+
+**Notes:** The single-lr comparison (both at 1e-3) suggested CE wins by 0.042. But equal-budget tuning reverses the conclusion: BCE at lr=3e-3 reaches 0.631, beating CE's best (0.596 at lr=3e-3) by +0.035. BCE was slower to converge at lr=1e-3 (best_epoch=18) — consistent with the diluted-positive-signal hypothesis (7 zeros : 1 one per image) — but at lr=3e-3 it converges strongly and generalizes better. Per-class: kamyunet recall recovered (0.17 → 0.40), autobus improved, ambulance stayed ~0.66. This result demonstrates why equal-budget tuning matters: an unfair single-lr comparison would have led to the wrong conclusion.
+
+**Recommendation:** for this dataset, BCE at lr=3e-3 is the strongest loss choice. However, confidence behavior must be re-examined for this winner (BCE probabilities do not sum to 1, and multi-positive predictions may appear).

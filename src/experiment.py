@@ -33,7 +33,7 @@ def save_result(row, results_path):
 def run_experiment(name, device, paths, epochs=20, img_size=128, batch_size=32,
                    augment=False, dropout_p=0.0, pool_type='max',
                    weight_decay=0.0, scheduler_name='none', lr=1e-3, seed=42,
-                   imbalance=None, balanced=False , loss = 'ce'):
+                   imbalance=None, balanced=False , loss = 'ce' ):
     set_seed(seed)
     train_ds, _, _, val_loader = make_loaders(
         paths['data'], img_size, batch_size, seed, augment)
