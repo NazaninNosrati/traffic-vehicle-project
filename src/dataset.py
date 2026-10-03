@@ -151,3 +151,13 @@ def make_loaders(root, img_size, batch_size, seed, augment=False):
                               generator=g, num_workers=0)
     val_loader = DataLoader(val_ds, batch_size=64, shuffle=False, num_workers=0)
     return train_ds, val_ds, train_loader, val_loader
+
+def simulate_imbalance(targets, keep_fraction, seed):
+    rng = np.random.default_rng(seed)
+    targets = np.array(targets)
+    keep = []
+    for c in np.unique(targets):
+        idx = np.where(targets == c)[0]
+        n = max(1, round(len(idx) * keep_fraction.get(int(c), 1.0)))
+        keep.extend(rng.choice(idx, size=n, replace=False).tolist())
+    return sorted(keep)
