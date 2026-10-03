@@ -1,7 +1,7 @@
 import numpy as np
 
 
-class BalancedSampler:
+class BalancedBatchSampler:
     def __init__(self, targets, batch_size, num_batches, seed=42):
         assert batch_size % 8 == 0, "batch_size must be divisible by 8"
         self.targets = np.array(targets)

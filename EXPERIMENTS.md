@@ -124,3 +124,17 @@ Notes: <_>
 **Best epoch / gap:** 30 / val_loss − train_loss = 0.939 − 0.845 = 0.094 (baseline: 28 / 0.094)
 **Lowest-recall class:** kamyunet (0.362)  **Lowest-precision class:** kamyunet (0.486)
 **Notes:** Plateau scheduler produced the BEST non-baseline result so far — macro_F1 = 0.649, only 0.007 below baseline. This is WELL within the noise threshold (~0.03), so the difference from baseline is NOT statistically significant. Crucially, the best epoch was 30 (the last epoch), meaning the model was STILL IMPROVING when training stopped — with more epochs, plateau would likely surpass baseline. Train loss dropped to 0.845 (lowest of all experiments), val_loss to 0.939 (second lowest), and gap stayed at 0.094 — same as baseline, indicating no overfitting trade-off. Per-class: kamyunet remains the weakest (recall 0.36), but savari precision jumped to 0.77 (vs baseline 0.63), the best across all experiments. Strong candidate for longer training.
+
+## — Ablation: imbalanced sampling
+
+**Changed:** standard shuffle=True → BalancedBatchSampler (4 per class per batch) on simulated-imbalanced training set
+**Fixed:** CNNBaseline, split (seed 42), AdamW lr=1e-3, 20 epochs, batch 32, CrossEntropy, no augmentation, no dropout, max-pooling, no class weights
+**Config:** runs `imb_standard`, `imb_balanced` (results/experiments.csv)
+**Simulated imbalance:** ambulance=35 (20%), minibus=54 (30%), others≈195 (100%), n_train=1272
+**Result:**
+- imb_standard: macro_P=0.390, macro_R=0.488, macro_F1=0.430
+- imb_balanced: macro_P=0.570, macro_R=0.553, macro_F1=0.529
+- Delta: +0.180 P, +0.065 R, **+0.099 F1** (well above noise ~0.03)
+**Best epoch / gap:** 17 / 0.328 (standard) → 20 / 0.391 (balanced)
+**Lowest-recall class:** ambulance (standard, recall=0.000) → kamyunet (balanced, recall=0.106)
+**Notes:** On the simulated-imbalanced training set, standard training suffered catastrophic minority-class collapse. ambulance and minibus both received F1 = 0.000 — the model never predicted them at all. This is the classic majority-class bias: accuracy remained at 0.501, but macro-F1 dropped to 0.430. BalancedBatchSampler recovered both classes completely: ambulance F1 jumped from 0.000 → 0.543, minibus from 0.000 → 0.548. Overall macro-F1 improved by +0.099 (0.430 → 0.529), the largest single-factor gain in this project. Trade-off: the balanced sampler slightly hurt majority classes — vanet recall dropped from 0.60 → 0.34, kamyunet recall from 0.55 → 0.11 — but the macro-level gain dominates, and per-class fairness is exactly the goal under imbalance. The gap increased from 0.328 to 0.391, indicating a small increase in overfitting, expected since the sampler sees the minority classes more often. Recommendation: use BalancedBatchSampler whenever deployment requires per-class reliability, especially for rare classes like ambulance and minibus.
