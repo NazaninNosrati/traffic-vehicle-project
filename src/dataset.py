@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from PIL import Image
 from sklearn.model_selection import StratifiedShuffleSplit
+from torch.utils.data import DataLoader
 from torchvision import datasets, models, transforms
 from tqdm import tqdm
 
@@ -91,7 +92,7 @@ def make_train_val_split(df, val_size=0.2, seed=42):
 
 
 def export_split(part_df, out_root):
-    for _, row in part_df.iterrows():
+    for row in part_df.iterrows():
         dest_dir = os.path.join(out_root, row['class'])
         os.makedirs(dest_dir, exist_ok=True)
         shutil.copy2(row['path'], os.path.join(dest_dir, row['filename']))
@@ -123,3 +124,30 @@ def make_imagefolders(processed_root, test_root):
     te = datasets.ImageFolder(test_root)
     assert tr.class_to_idx == va.class_to_idx == te.class_to_idx, "class_to_idx mismatch"
     return tr, va, te
+
+IMAGENET_MEAN = [0.485, 0.456, 0.406]
+IMAGENET_STD = [0.229, 0.224, 0.225]
+
+def get_transforms(img_size, augment=False):
+    norm = transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD)
+    eval_tf = transforms.Compose([
+        transforms.Resize((img_size, img_size)), transforms.ToTensor(), norm])
+    if not augment:
+        return eval_tf, eval_tf
+    train_tf = transforms.Compose([
+        transforms.RandomResizedCrop(img_size, scale=(0.8, 1.0)),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(5),
+        transforms.ColorJitter(brightness=0.3, contrast=0.3),
+        transforms.ToTensor(), norm])
+    return train_tf, eval_tf
+
+def make_loaders(root, img_size, batch_size, seed, augment=False):
+    train_tf, eval_tf = get_transforms(img_size, augment)
+    train_ds = datasets.ImageFolder(f'{root}/train', transform=train_tf)
+    val_ds = datasets.ImageFolder(f'{root}/val', transform=eval_tf)
+    g = torch.Generator().manual_seed(seed)
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,
+                              generator=g, num_workers=0)
+    val_loader = DataLoader(val_ds, batch_size=64, shuffle=False, num_workers=0)
+    return train_ds, val_ds, train_loader, val_loader
