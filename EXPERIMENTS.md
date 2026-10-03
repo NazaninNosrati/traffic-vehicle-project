@@ -138,3 +138,17 @@ Notes: <_>
 **Best epoch / gap:** 17 / 0.328 (standard) → 20 / 0.391 (balanced)
 **Lowest-recall class:** ambulance (standard, recall=0.000) → kamyunet (balanced, recall=0.106)
 **Notes:** On the simulated-imbalanced training set, standard training suffered catastrophic minority-class collapse. ambulance and minibus both received F1 = 0.000 — the model never predicted them at all. This is the classic majority-class bias: accuracy remained at 0.501, but macro-F1 dropped to 0.430. BalancedBatchSampler recovered both classes completely: ambulance F1 jumped from 0.000 → 0.543, minibus from 0.000 → 0.548. Overall macro-F1 improved by +0.099 (0.430 → 0.529), the largest single-factor gain in this project. Trade-off: the balanced sampler slightly hurt majority classes — vanet recall dropped from 0.60 → 0.34, kamyunet recall from 0.55 → 0.11 — but the macro-level gain dominates, and per-class fairness is exactly the goal under imbalance. The gap increased from 0.328 to 0.391, indicating a small increase in overfitting, expected since the sampler sees the minority classes more often. Recommendation: use BalancedBatchSampler whenever deployment requires per-class reliability, especially for rare classes like ambulance and minibus.
+
+## — Ablation: balanced sampling under simulated imbalance
+
+**Changed:** standard shuffle=True → BalancedBatchSampler (4 samples/class/batch, replacement=True)
+**Fixed:** CNNBaseline, split (seed 42), AdamW lr=1e-3, 20 epochs, batch 32, CrossEntropy, no augmentation, no dropout, max-pooling, no class weights
+**Simulated imbalance:** ambulance=35 (20%), minibus=54 (30%), others≈195 (100%), n_train=1272
+**Config:** runs `baseline`, `imb_standard`, `imb_balanced` (results/experiments.csv)
+**Result:**
+- baseline (balanced): acc=0.574, macro_F1=0.565, ambulance_R=0.682, minibus_R=0.333
+- imb_standard: acc=0.501, macro_F1=0.430, ambulance_R=0.000, minibus_R=0.000
+- imb_balanced: acc=0.553, macro_F1=0.529, ambulance_R=0.568, minibus_R=0.822
+**Delta (imb_standard → imb_balanced):** +0.052 acc, +0.099 macro_F1, +0.568 ambulance recall, +0.822 minibus recall
+
+**Notes:** Under simulated imbalance, standard training suffered catastrophic minority-class collapse: both ambulance and minibus reached recall = 0.000 — the model never predicted them. This is the classic majority-class bias: accuracy stayed near 0.50 while macro-F1 dropped to 0.430. BalancedBatchSampler recovered both classes completely — ambulance recall jumped from 0.000 → 0.568, minibus from 0.000 → 0.822 — and lifted macro-F1 by +0.099, the largest single-factor gain in this project. Interestingly, imb_balanced also beat imb_standard in raw accuracy (+0.052), which is unusual: oversampling usually trades accuracy for recall. Here the dataset is small enough that ignoring two classes also hurt overall accuracy. Comparison with baseline reveals a key insight: baseline minibus recall was only 0.333 even with balanced data — minibus is intrinsically hard. Imb_balanced pushed minibus recall to 0.822 by repeatedly exposing the model to the 54 available examples, effectively "over-training" on the minority class. Trade-off: kamyunet and vanet recall dropped (majority classes paid the cost), but macro-level fairness improved. Recommendation: use BalancedBatchSampler whenever per-class reliability matters, especially for rare, safety-critical classes like ambulance.

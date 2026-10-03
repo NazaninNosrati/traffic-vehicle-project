@@ -8,7 +8,7 @@ import torch.nn as nn
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from torch.utils.data import DataLoader, Subset
 
-from src.dataset import make_loaders
+from src.dataset import make_loaders  , simulate_imbalance
 from src.evaluate import predict_loader, summarize
 from src.model import CNNBaseline
 from src.sampler import BalancedBatchSampler
@@ -33,58 +33,38 @@ def save_result(row, results_path):
 def run_experiment(name, device, paths, epochs=20, img_size=128, batch_size=32,
                    augment=False, dropout_p=0.0, pool_type='max',
                    weight_decay=0.0, scheduler_name='none', lr=1e-3, seed=42,
-                   train_subset=None, sampler_type='none', class_weights=False):
+                   imbalance=None, balanced=False):
     set_seed(seed)
-
-    train_ds, val_ds, _, val_loader = make_loaders(
+    train_ds, _, _, val_loader = make_loaders(
         paths['data'], img_size, batch_size, seed, augment)
 
-    if train_subset is not None:
-        targets = [train_ds.targets[i] for i in train_subset]
-        train_ds_use = Subset(train_ds, train_subset)
-    else:
-        targets = train_ds.targets
-        train_ds_use = train_ds
+    ds, targets = train_ds, train_ds.targets
+    if imbalance is not None:
+        keep = simulate_imbalance(train_ds.targets, imbalance, seed)
+        ds = Subset(train_ds, keep)
+        targets = [train_ds.targets[i] for i in keep]
 
-    if sampler_type == 'balanced':
-        n = len(train_ds_use)
-        num_batches = (n + batch_size - 1) // batch_size
-        sampler = BalancedBatchSampler(
-            targets=targets, batch_size=batch_size,
-            num_batches=num_batches, seed=seed)
-        train_loader = DataLoader(train_ds_use, batch_sampler=sampler)
-    else:
-        g = torch.Generator().manual_seed(seed)
-        train_loader = DataLoader(train_ds_use, batch_size=batch_size,
-                                   shuffle=True, generator=g, num_workers=0)
+    g = torch.Generator().manual_seed(seed)
+    train_loader = DataLoader(ds, batch_size=batch_size, shuffle=True,
+                              generator=g, num_workers=0)
+    if balanced:
+        sampler = BalancedBatchSampler(targets, batch_size,
+                                       num_batches=len(train_loader), seed=seed)
+        train_loader = DataLoader(ds, batch_sampler=sampler, num_workers=0)
 
-    if class_weights:
-        import numpy as np
-        from sklearn.utils.class_weight import compute_class_weight
-        w = compute_class_weight('balanced',
-                                  classes=np.unique(targets), y=targets)
-        w = torch.tensor(w, dtype=torch.float).to(device)
-        criterion = nn.CrossEntropyLoss(weight=w)
-    else:
-        criterion = nn.CrossEntropyLoss()
-
-    config = {'augment': augment, 'dropout_p': dropout_p, 'pool_type': pool_type,
-              'weight_decay': weight_decay, 'scheduler': scheduler_name, 'lr': lr,
-              'epochs': epochs, 'batch_size': batch_size, 'optimizer': 'AdamW',
-              'sampler': sampler_type, 'class_weights': class_weights,
-              'n_train': len(train_ds_use)}
-
-    meta = {'architecture': 'CNNBaseline', 'class_to_idx': train_ds.class_to_idx,
-            'img_size': img_size, 'seed': seed, 'config': config}
     model = CNNBaseline(dropout_p=dropout_p, pool_type=pool_type).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler, step_on_val = make_scheduler(scheduler_name, optimizer)
+    criterion = nn.CrossEntropyLoss()
 
-    os.makedirs(paths['ckpt_dir'], exist_ok=True)
-    os.makedirs(paths['log_dir'], exist_ok=True)
+    config = dict(augment=augment, dropout_p=dropout_p, pool_type=pool_type,
+                  weight_decay=weight_decay, scheduler=scheduler_name, lr=lr,
+                  epochs=epochs, batch_size=batch_size, optimizer='AdamW',
+                  imbalance=str(imbalance), balanced=balanced)
+    meta = {'architecture': 'CNNBaseline', 'class_to_idx': train_ds.class_to_idx,
+            'img_size': img_size, 'seed': seed, 'config': config}
     ckpt = os.path.join(paths['ckpt_dir'], f'{name}.pt')
     log = os.path.join(paths['log_dir'], f'{name}.csv')
-
     history = fit(model, train_loader, val_loader, optimizer, criterion, device,
                   epochs, ckpt, log, meta=meta,
                   scheduler=scheduler, step_on_val=step_on_val)
