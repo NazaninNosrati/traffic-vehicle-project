@@ -5,14 +5,18 @@ import pandas as pd
 import torch
 import torch.nn as nn
 
+from src.evaluate import predict_loader, summarize
+from src.train import fit
+from src.utils import set_seed
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from torch.utils.data import DataLoader, Subset
 
-from src.dataset import make_loaders  , simulate_imbalance
+from src.dataset import make_loaders, simulate_imbalance
 from src.evaluate import predict_loader, summarize
 from src.model import CNNBaseline
 from src.sampler import BalancedBatchSampler
-from src.train import fit, make_scheduler  , make_criterion 
+from src.train import fit, make_criterion, make_scheduler
 from src.utils import set_seed
 
 
@@ -79,3 +83,41 @@ def run_experiment(name, device, paths, epochs=20, img_size=128, batch_size=32,
                 'final_lr': history[-1]['lr'], **config})
     save_result(row, paths['results'])
     return row   
+
+def run_experiment_tl(name, model, train_loader, val_loader, optimizer,
+                      criterion, device, epochs=20, extra=None,
+                      paths=None, seed=42):
+    set_seed(seed)
+    extra = extra or {}
+    paths = paths or {
+        'ckpt_dir': '../checkpoints',
+        'log_dir': '../logs',
+        'results': '../results/experiments.csv',
+    }
+    
+    ckpt = os.path.join(paths['ckpt_dir'], f'{name}.pt')
+    log = os.path.join(paths['log_dir'], f'{name}.csv')
+
+    history = fit(model, train_loader, val_loader, optimizer, criterion,
+                  device, epochs, ckpt, log, meta=extra)
+    
+    model.load_state_dict(torch.load(ckpt, weights_only=False)['model_state_dict'])
+    trues, preds = predict_loader(model, val_loader, device)
+    
+    class_names = val_loader.dataset.classes
+    row = summarize(trues, preds, class_names)
+  
+    best = max(history, key=lambda r: r['val_macro_f1'])
+    row.update({
+        'experiment': name,
+        'best_epoch': best['epoch'],
+        'train_loss': best['train_loss'],
+        'val_loss': best['val_loss'],
+        'gap': best['val_loss'] - best['train_loss'],
+        'final_lr': history[-1]['lr'],
+        'epochs': epochs,
+        **extra,
+    })
+    
+    save_result(row, paths['results'])
+    return row

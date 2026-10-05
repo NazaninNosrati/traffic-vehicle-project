@@ -1,4 +1,5 @@
 from torch import nn
+from torchvision import models
 
 
 class CNNBaseline(nn.Module):
@@ -24,4 +25,34 @@ class CNNBaseline(nn.Module):
 
     def forward(self , x):
         return self.classifier(self.gap(self.features(x)))
+    
+class TLResNet(nn.Module):
+    def __init__(self, num_classes=8, trainable=('fc',)):
+        super().__init__()
+        self.net = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+        self.net.fc = nn.Linear(512, num_classes)
+        self.set_trainable(trainable)
 
+    def set_trainable(self, names):
+        self.trainable = tuple(names)
+        for n, p in self.net.named_parameters():
+            p.requires_grad = any(n.startswith(t) for t in self.trainable)
+
+    def train(self, mode=True):
+        super().train(mode)
+        if mode:
+            for n, m in self.net.named_children():
+                if n not in self.trainable:
+                    m.eval()          
+        return self
+
+    def forward(self, x):
+        return self.net(x)
+
+
+def describe_run(model, opt):
+    total = sum(p.numel() for p in model.parameters())
+    train = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f'trainable {train:,} / {total:,}')
+    for i, g in enumerate(opt.param_groups):
+        print(f'group {i}: lr={g["lr"]}, params={sum(p.numel() for p in g["params"]):,}')

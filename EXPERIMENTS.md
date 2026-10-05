@@ -222,3 +222,35 @@ If BCE had clearly not converged within the same budget, the fairest comparison 
 **Notes:** The single-lr comparison (both at 1e-3) suggested CE wins by 0.042. But equal-budget tuning reverses the conclusion: BCE at lr=3e-3 reaches 0.631, beating CE's best (0.596 at lr=3e-3) by +0.035. BCE was slower to converge at lr=1e-3 (best_epoch=18) — consistent with the diluted-positive-signal hypothesis (7 zeros : 1 one per image) — but at lr=3e-3 it converges strongly and generalizes better. Per-class: kamyunet recall recovered (0.17 → 0.40), autobus improved, ambulance stayed ~0.66. This result demonstrates why equal-budget tuning matters: an unfair single-lr comparison would have led to the wrong conclusion.
 
 **Recommendation:** for this dataset, BCE at lr=3e-3 is the strongest loss choice. However, confidence behavior must be re-examined for this winner (BCE probabilities do not sum to 1, and multi-positive predictions may appear).
+
+## — Transfer Learning: ResNet-18 Feature Extraction (vs CNNBaseline)
+
+**Question:** Does using an ImageNet-pretrained backbone beat training a CNN from scratch on ~2,000 traffic-vehicle images?
+
+**Setup:**
+- CNNBaseline: 11.2M trainable params, trained from random init
+- ResNet-FE: ResNet-18 (ImageNet-pretrained), backbone frozen, only fc (4,104 params) trained
+- Both: 20 epochs, AdamW, CrossEntropy, batch 32, no augmentation
+
+**Results:**
+| Model | macro_F1 | trainable params | best_epoch |
+|---|---:|---:|---:|
+| CNNBaseline | 0.565 | 11.2M | 20 |
+| **ResNet-FE** | **0.898** | **4,104** | **16** |
+| Δ | **+0.333** | **−2700×** | — |
+
+**Why ResNet wins:**
+1. **Generalizable features:** ImageNet-pretrained features (edges, textures, shapes) transfer directly to traffic vehicles.
+2. **Data efficiency:** With only ~2,000 images, training from scratch cannot learn rich features; pretrained features fill the gap.
+3. **Only 4k params trained:** The head specializes ImageNet features to the 8 traffic classes.
+
+**Training curves:**
+- CNNBaseline: slow, monotone improvement, still rising at epoch 20 (undertrained).
+- ResNet-FE: F1 = 0.79 by epoch 2, plateau from epoch 8, best 0.898 at epoch 16.
+- Plateau indicates the frozen backbone cannot adapt further — the head alone is not enough.
+
+**Overfitting:** ResNet gap = 0.105 (small), consistent with frozen backbone acting as a regularizer.
+
+**Limitation & next step:** Frozen features limit adaptation to traffic-specific patterns. Fine-tuning `layer4` + head with a smaller lr for pretrained params (1e-4) and normal lr for the head (1e-3) should close this gap and potentially exceed 0.92.
+
+**Conclusion:** Transfer learning is the single most impactful change in this project. A 4k-parameter head on a frozen ImageNet backbone beats an 11M-parameter CNN trained from scratch by +0.333 macro-F1 — a ~60% relative improvement.
