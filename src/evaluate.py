@@ -1,5 +1,12 @@
+import os
+
 import torch
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+from torch.utils.data import DataLoader
+from torchvision import datasets
+
+from src.dataset import get_transforms
+from src.model import CNNBaseline
 
 
 @torch.no_grad()
@@ -53,3 +60,30 @@ def get_logits(model, loader, device):
         logits.append(model(images.to(device)).cpu())
         trues.extend(targets.tolist())
     return torch.cat(logits), torch.tensor(trues)
+
+
+@torch.no_grad()
+def evaluate_on_test(model, test_root, device, class_names, 
+                     img_size=128, batch_size=64):
+
+    if not os.path.exists(test_root):
+        raise FileNotFoundError(f"Test folder not found: {test_root}")
+    
+    _, eval_tf = get_transforms(img_size, augment=False)
+    test_ds = datasets.ImageFolder(test_root, transform=eval_tf)
+   
+    print(f"Test classes:  {test_ds.class_to_idx}")
+    print(f"Train classes: {class_names}")
+    
+    test_loader = DataLoader(test_ds, batch_size=batch_size, 
+                              shuffle=False, num_workers=0)
+    
+    model.eval()
+    trues, preds = predict_loader(model, test_loader, device)
+    metrics = summarize(trues, preds, class_names)
+    
+    print(f"\n Test evaluation on {len(test_ds)} images")
+    print(f"  macro_F1: {metrics['macro_f1']:.4f}")
+    print(f"  accuracy: {metrics['accuracy']:.4f}")
+    
+    return metrics

@@ -27,7 +27,13 @@ def average_hash(filepath , hash_size=8):
     except Exception:
         return None
 
-def scan_all_images(data_root , splits=('train' , 'test' , 'unclean')):
+def scan_all_images(data_root , splits=(None)):
+
+    if splits is None:
+        splits = ('train', 'unclean')
+        test_path = os.path.join(data_root, 'test')
+        if os.path.exists(test_path):
+            splits = ('train', 'test', 'unclean')
 
     all_files= []
     for split in splits:
@@ -92,7 +98,7 @@ def make_train_val_split(df, val_size=0.2, seed=42):
 
 
 def export_split(part_df, out_root):
-    for row in part_df.iterrows():
+    for _, row in part_df.iterrows():   
         dest_dir = os.path.join(out_root, row['class'])
         os.makedirs(dest_dir, exist_ok=True)
         shutil.copy2(row['path'], os.path.join(dest_dir, row['filename']))
@@ -109,21 +115,25 @@ def md5_overlap(a_df, b_df):
     return len(set(a_df['md5']) & set(b_df['md5']))
 
 
-def check_no_leakage(train_part, val_part, test_part):
+def check_no_leakage(train_part, val_part, test_part=None):
     result = {
         'train∩val': md5_overlap(train_part, val_part),
-        'train∩test': md5_overlap(train_part, test_part),
-        'val∩test': md5_overlap(val_part, test_part),
     }
+    if test_part is not None:
+        result['train∩test'] = md5_overlap(train_part, test_part)
+        result['val∩test'] = md5_overlap(val_part, test_part)
     return result
 
 
-def make_imagefolders(processed_root, test_root):
+def make_imagefolders(processed_root , test_root=None ):
     tr = datasets.ImageFolder(os.path.join(processed_root, 'train'))
     va = datasets.ImageFolder(os.path.join(processed_root, 'val'))
+
+    if test_root is None or not os.path.exists(test_root):
+        return tr, va, None
     te = datasets.ImageFolder(test_root)
-    assert tr.class_to_idx == va.class_to_idx == te.class_to_idx, "class_to_idx mismatch"
-    return tr, va, te
+    assert tr.class_to_idx == va.class_to_idx== te.class_to_idx , "class_to_idx mismatch"
+    return tr, va, te 
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
