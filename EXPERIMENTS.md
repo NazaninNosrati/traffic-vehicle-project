@@ -254,3 +254,27 @@ If BCE had clearly not converged within the same budget, the fairest comparison 
 **Limitation & next step:** Frozen features limit adaptation to traffic-specific patterns. Fine-tuning `layer4` + head with a smaller lr for pretrained params (1e-4) and normal lr for the head (1e-3) should close this gap and potentially exceed 0.92.
 
 **Conclusion:** Transfer learning is the single most impactful change in this project. A 4k-parameter head on a frozen ImageNet backbone beats an 11M-parameter CNN trained from scratch by +0.333 macro-F1 — a ~60% relative improvement.
+
+## — Transfer Learning: ResNet-18 Fine-tuning
+
+**Changed:** feature extraction (frozen backbone, only fc) → fine-tuning (layer4 + fc trainable)
+**Fixed:** ImageNet normalization, 224×224 input, Adam with 2 LR groups, 20 epochs, batch 32, CrossEntropy
+**Trainable params:** 8,397,832 / 11,180,616 (75%)
+**LR groups:** layer4: 1e-4, fc: 1e-3
+**Config:** run `resnet_ft` (results/experiments.csv)
+**Result:** macro_F1=0.932, accuracy=0.946 (vs feature extraction 0.898)
+**Delta:** **+0.034 macro_F1** — above noise threshold (~0.03)
+
+**Training curve:**
+- Starts strong (F1=0.904 at epoch 1) because backbone is already pretrained
+- Reaches plateau around epoch 11
+- Best epoch: 11 (earlier than FE's epoch 16)
+- train_loss → 0.00026 (essentially zero), val_loss ≈ 0.21
+- **Gap = 0.211** — large, indicates the model has memorized training data
+
+**Per-class improvement:**
+The most striking gain is kamyunet: F1 jumped from ~0.42 (FE) to **0.917** (FT). This confirms that fine-tuning layer4 was essential to capture the subtle kamyun/kamyunet distinction — ImageNet features alone were not enough. All classes now exceed F1=0.78, with autobus best at 0.983 and vanet worst at 0.788 (small support of 17).
+
+**Caution:** The very small train_loss suggests significant overfitting. Validation loss, however, remains stable at 0.21, so generalization is not yet collapsing. If training were extended, we would expect val_loss to rise. This is the natural risk of fine-tuning on a small dataset (~2,100 images) with 8.4M trainable params.
+
+**Conclusion:** Fine-tuning beats feature extraction (+0.034 F1) and dramatically fixes the kamyunet problem that plagued all earlier models. The trade-off is a large train-val gap, which is expected but should be monitored.
