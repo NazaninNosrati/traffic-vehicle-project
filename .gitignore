@@ -6,6 +6,7 @@ data/processed/**
 !data/processed/
 !data/processed/.gitkeep
 !data/processed/imbalanced_train_indices.csv
+!data/processed/neysan_val_files.csv
 # Model checkpoints (large binary files)
 checkpoints/*.pt
 checkpoints/*.pth
