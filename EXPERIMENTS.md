@@ -278,3 +278,23 @@ The most striking gain is kamyunet: F1 jumped from ~0.42 (FE) to **0.917** (FT).
 **Caution:** The very small train_loss suggests significant overfitting. Validation loss, however, remains stable at 0.21, so generalization is not yet collapsing. If training were extended, we would expect val_loss to rise. This is the natural risk of fine-tuning on a small dataset (~2,100 images) with 8.4M trainable params.
 
 **Conclusion:** Fine-tuning beats feature extraction (+0.034 F1) and dramatically fixes the kamyunet problem that plagued all earlier models. The trade-off is a large train-val gap, which is expected but should be monitored.
+
+## — Stretch: ResNet-18 from Scratch
+
+**Changed:** pretrained ResNet-18 → ResNet-18 from scratch (weights=None), adapted for 32×32 input (conv1: 3×3 stride=1, maxpool removed)
+**Fixed:** Adam lr=1e-3, 20 epochs, batch 64, CrossEntropy
+**Trainable params:** 11,172,936 (all)
+**Config:** run `resnet_scratch` (results/experiments.csv)
+**Result:** macro_F1=0.827, accuracy=0.837 (vs CNNBaseline 0.565, vs ResNet-FE 0.898)
+**Delta vs CNNBaseline:** +0.262
+**Delta vs ResNet-FE:** −0.071
+
+**Notes:** Surprisingly, ResNet from scratch reaches F1=0.827 — far better than the CNNBaseline (0.565), and only 0.071 below the pretrained feature extractor. This isolates two effects:
+1. **Architecture matters (+0.262):** ResNet's skip connections, BatchNorm, and depth alone beat a shallow CNN, even without any pretraining.
+2. **Pretraining matters (+0.071):** Pretrained features still add a real gain on top of the architecture.
+
+The model is heavily overfit (train_loss = 0.009, val_loss = 0.577, gap = 0.568), yet validation loss steadily decreased, indicating it still generalizes. best_epoch = 20 (last epoch) — with more epochs it may improve further.
+
+**Per-class:** kamyunet F1 = 0.754 (much better than CNNBaseline's 0.30), vanet still weakest (0.71).
+
+**Conclusion:** The final ranking is ResNet-FT (0.932) > ResNet-FE (0.898) > ResNet-Scratch (0.827) > CNNBaseline (0.565). Transfer learning gives the biggest boost, but ResNet's architecture alone already delivers most of the improvement.
