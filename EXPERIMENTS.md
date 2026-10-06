@@ -298,3 +298,12 @@ The model is heavily overfit (train_loss = 0.009, val_loss = 0.577, gap = 0.568)
 **Per-class:** kamyunet F1 = 0.754 (much better than CNNBaseline's 0.30), vanet still weakest (0.71).
 
 **Conclusion:** The final ranking is ResNet-FT (0.932) > ResNet-FE (0.898) > ResNet-Scratch (0.827) > CNNBaseline (0.565). Transfer learning gives the biggest boost, but ResNet's architecture alone already delivers most of the improvement.
+
+## — Ablation: augmentation + plateau (best_combo_v2)
+
+**Changed:** baseline_v2 → augment=True + scheduler=plateau
+**Fixed:** CNNBaseline, seed 42, AdamW lr=1e-3, 20 epochs, batch 32
+**Config:** run `best_combo_v2` (results/experiments.csv)
+**Result:** macro_F1=0.484 (vs baseline_v2 0.565) → **−0.081**
+**Lowest-recall class:** vanet
+**Notes:** Combining two regularizers on small data caused underfitting. kamyunet recall collapsed to 0.12. Since the baseline already showed a small gap (0.111), additional regularization only hurt. This is a negative result — a valid scientific finding: **more regularization ≠ better performance** when the model is already well-regularized.
