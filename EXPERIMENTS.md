@@ -404,3 +404,38 @@ The macro-F1 gain from merging is only **+0.005** — far below the noise thresh
 **Conclusion:** The three criteria collectively do NOT justify merging. Labels remain distinct. The resnet_ft model is retained as the final model.
 
 **Note:** Retraining with a merged taxonomy was not performed (it is stretch work and would not change the conclusion given the negligible F1 gain).
+
+
+## — Misclassified Images Analysis (ResNet-FT)
+
+**Setup:** 12 highest-confidence errors on validation set, sorted by softmax confidence (all > 0.85).
+
+**Error patterns:**
+
+| Pattern | Count | Examples |
+|---|---:|---|
+| kamyun ↔ kamyunet | 4 | #4, #6, #7, #8 |
+| taxi → savari | 3 | #3, #10, #12 |
+| minibus/ambulance → autobus | 2 | #1, #2 |
+| vanet → savari | 1 | #5 |
+| kamyunet → minibus | 1 | #9 |
+| taxi → kamyunet | 1 | #11 |
+
+**Analysis:**
+
+1. **kamyun ↔ kamyunet (4 errors)** — the largest group. Visually these differ only in size, and at low resolution (128/224 px) size cues are hard to read. Both directions appear, consistent with the bidirectional pair-confusion score (0.118).
+
+2. **taxi → savari (3 errors)** — taxi is a subclass of savari (sedan) by shape; the difference is essentially the taxi sign and color. When the sign is not visible, the model defaults to savari.
+
+3. **minibus/ambulance → autobus (2 errors)** — van-shaped vehicles are confused with buses. These are one-directional and likely driven by silhouette overlap.
+
+4. **Singular outliers (#5, #9, #11)** — one-off errors. #11 (taxi → kamyunet) is the most surprising and may indicate a corrupted or ambiguous image; worth manual inspection.
+
+**Critical observation — high confidence on errors:**
+All 12 errors have confidence > 0.85. The model is overconfident when it is wrong. This is a calibration issue, not a capacity issue. For a real deployment that flags `needs_review` based on confidence, this is dangerous: overconfident errors would not be flagged. Mitigation options: temperature scaling, Platt scaling, or MC-dropout at inference.
+
+**Patterns by class support:**
+- kamyun/kamyunet have balanced support (~58-60 each) — the errors are genuine visual ambiguity, not class imbalance.
+- taxi → savari errors are one-directional, suggesting taxi is a strict subset (sedan with sign).
+
+**Decision:** No relabeling of val data. Errors are reviewed for analysis only. Changing validation labels would invalidate prior experiment comparisons; any justified relabeling would be done on training data followed by retraining.
