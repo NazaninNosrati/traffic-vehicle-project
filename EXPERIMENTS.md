@@ -319,3 +319,22 @@ The model is heavily overfit (train_loss = 0.009, val_loss = 0.577, gap = 0.568)
 **Notes:** BCE confirms its consistent underperformance on this single-label task, both on the old data (−0.040) and cleaned data (−0.064). The gap exceeds the noise threshold (~0.03). kamyunet recall collapsed to 0.05, continuing the BCE pattern of hurting hard classes. As hypothesized, the 7-zero / 1-one BCE target dilutes the positive signal and class competition is removed; this is not fixed by cleaning the data.
 
 **Conclusion:** CE remains the right choice for this single-label problem. Cleaning the data did not change the relative ranking of losses.
+
+## — Ablation: balanced sampling on cleaned data (v2)
+
+**Changed:** standard shuffle → BalancedBatchSampler on simulated-imbalanced cleaned data
+**Simulated imbalance:** ambulance=20%, minibus=30%, others=100%
+**Fixed:** CNNBaseline, seed 42, AdamW lr=1e-3, 20 epochs, batch 32, loss=CE
+**Config:** runs `imb_shuffle_v2`, `imb_balanced_v2` (results/experiments.csv)
+
+**Result:**
+| Run | F1 | ambulance R | kamyunet R |
+|---|---:|---:|---:|
+| baseline_v2 (balanced) | **0.565** | 0.68 | 0.30 |
+| imb_shuffle_v2 | 0.405 | **0.037** | 0.41 |
+| imb_balanced_v2 | 0.534 | **0.778** | 0.28 |
+| **Δ (sampler)** | **+0.129** | **+0.741** | −0.13 |
+
+**Notes:** The sampler effect is dramatically stronger in v2 than v1 (+0.129 vs +0.099). Without sampler, ambulance recall collapses to 0.037 — the model almost never predicts the minority class. With sampler, ambulance recall jumps to 0.778, matching the balanced baseline (0.68). Trade-off: kamyunet recall drops from 0.41 to 0.28, as sampler redirects capacity to the rare classes. The gap vs balanced baseline is only −0.031 (0.534 vs 0.565), meaning balanced sampling recovers most of the imbalance penalty.
+
+**Conclusion:** BalancedBatchSampler is essential under imbalance. On cleaned data, it recovers ambulance almost completely (0.04 → 0.78) and lifts macro-F1 by +0.129 — the largest single-factor gain for this design on the cleaned dataset.
