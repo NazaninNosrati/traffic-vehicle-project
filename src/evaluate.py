@@ -87,3 +87,11 @@ def evaluate_on_test(model, test_root, device, class_names,
     print(f"  accuracy: {metrics['accuracy']:.4f}")
     
     return metrics
+
+def rank_confused_pairs(cm_norm, class_names, top=5):
+    n = len(class_names)
+    pairs = []
+    for i in range(n):
+        for j in range(i + 1, n):
+            pairs.append((class_names[i], class_names[j], cm_norm[i, j] + cm_norm[j, i]))
+    return sorted(pairs, key=lambda x: x[2], reverse=True)[:top]

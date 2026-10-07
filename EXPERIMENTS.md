@@ -338,3 +338,69 @@ The model is heavily overfit (train_loss = 0.009, val_loss = 0.577, gap = 0.568)
 **Notes:** The sampler effect is dramatically stronger in v2 than v1 (+0.129 vs +0.099). Without sampler, ambulance recall collapses to 0.037 — the model almost never predicts the minority class. With sampler, ambulance recall jumps to 0.778, matching the balanced baseline (0.68). Trade-off: kamyunet recall drops from 0.41 to 0.28, as sampler redirects capacity to the rare classes. The gap vs balanced baseline is only −0.031 (0.534 vs 0.565), meaning balanced sampling recovers most of the imbalance penalty.
 
 **Conclusion:** BalancedBatchSampler is essential under imbalance. On cleaned data, it recovers ambulance almost completely (0.04 → 0.78) and lifts macro-F1 by +0.129 — the largest single-factor gain for this design on the cleaned dataset.
+
+## — Validation Comparison Table
+
+| Experiment | Macro P | Macro R | Macro F1 | Lowest-Recall | Lowest-Precision |
+|---|---:|---:|---:|---|---|
+| CNN baseline | 0.612 | 0.600 | 0.588 | vanet | vanet |
+| Balanced batches | 0.532 | 0.540 | 0.534 | vanet | vanet |
+| CrossEntropy / BCE | 0.490 | 0.538 | 0.501 | vanet | vanet |
+| Best regularized + scheduled | 0.478 | 0.516 | 0.484 | vanet | vanet |
+| ResNet feature extraction | 0.902 | 0.895 | 0.898 | vanet | vanet |
+| **ResNet fine-tuning** | **0.936** | **0.930** | **0.932** | vanet | vanet |
+
+### Analysis by row
+
+**CNN baseline (0.588)** — reference point. vanet is the weakest class in both recall and precision, suggesting systematic confusion with a visually similar class.
+
+**Balanced batches (0.534)** — trained on simulated-imbalanced data with BalancedBatchSampler. Despite the sampler, macro-F1 dropped 0.054 vs baseline because the training set itself is smaller and skewed. The sampler recovered minority-class recall but not enough to compensate. Lowest classes remain vanet.
+
+**CrossEntropy / BCE comparison (0.501)** — BCE on cleaned data. Confirms BCE's underperformance on this single-label task (−0.087 vs baseline). The 7-zero / 1-one target dilutes the learning signal, and the lack of softmax competition leads to lower precision. vanet is again the weakest class.
+
+**Best regularized + scheduled (0.484)** — augmentation + ReduceLROnPlateau. Combining two regularizers on a small dataset caused underfitting (−0.104 vs baseline). This is a negative result: more regularization ≠ better when the model is already well-regularized.
+
+**ResNet feature extraction (0.898)** — frozen ImageNet backbone + trained fc head. Massive jump (+0.310 over CNN baseline), confirming the strength of pretrained features. vanet remains weakest, but F1 improves from ~0.70 (CNN) to ~0.79.
+
+**ResNet fine-tuning (0.932)** — unfreezing layer4 with a smaller lr (1e-4). Best model overall, +0.034 over feature extraction. Confirms that adapting the last block to the traffic domain matters even after pretraining. vanet still the weakest class (F1 ~0.79), but all classes now exceed F1 ≈ 0.79.
+
+### Lowest-class analysis (vanet)
+
+Across all six experiments, vanet is consistently the lowest-recall and lowest-precision class. Likely reasons:
+1. Smallest support (17 val images).
+2. Visual similarity with minibus/autobus at low resolution.
+3. Possible label ambiguity in the dataset itself.
+
+Even ResNet fine-tuning only reaches ~0.79 F1 on vanet, whereas every other class is above 0.90. This is a domain-level signal that vanet may warrant a merge with a visually similar class (e.g., minibus) or a dedicated data collection effort.
+
+## — Merge Decision Analysis (hypothetical, no retrain)
+
+**Method:** recompute accuracy and macro-F1 after merging labels, without retraining.
+
+**Tested merge groups:**
+- bus = {minibus, autobus}
+- truck = {kamyun, kamyunet}
+
+**Result:**
+
+| Metric | Original | Merged | Δ |
+|---|---:|---:|---:|
+| Accuracy | 0.946 | 0.962 | +0.016 |
+| Macro-F1 | 0.932 | 0.937 | **+0.005** |
+
+**Interpretation:**
+The macro-F1 gain from merging is only **+0.005** — far below the noise threshold (~0.03). This means that **less than 1% of the model's errors** occur between the pairs considered for merging. The confusion matrix already showed these pairs are only mildly confused (kamyun↔kamyunet = 0.118; minibus↔autobus much lower). ResNet-FT has effectively learned to distinguish trucks (kamyun vs kamyunet) and buses (minibus vs autobus) despite their visual similarity.
+
+**Decision: DO NOT MERGE.**
+
+**Justification (three criteria from the project):**
+
+1. **Label ambiguity?** Visually, kamyun/kamyunet and minibus/autobus are hard to distinguish by eye at low resolution. This is a partial argument for merging. However, the model achieves high accuracy on these pairs anyway — the ambiguity is not reflected in the model's errors.
+
+2. **Practical importance?** In traffic monitoring, distinguishing heavy vs. light vehicles (kamyun vs kamyunet; bus vs minibus) has real value: it affects axle-load estimates, road-wear assessment, and traffic-mix statistics. Merging would discard this information.
+
+3. **Error magnitude and symmetry?** Pair confusion scores are low (max = 0.118 for kamyun↔kamyunet) and the merged F1 gain is negligible (+0.005). Errors are not large enough to justify abandoning the taxonomy.
+
+**Conclusion:** The three criteria collectively do NOT justify merging. Labels remain distinct. The resnet_ft model is retained as the final model.
+
+**Note:** Retraining with a merged taxonomy was not performed (it is stretch work and would not change the conclusion given the negligible F1 gain).

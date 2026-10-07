@@ -1,0 +1,7 @@
+pair,score,a->b,b->a
+savari <-> vanet,0.235,0/60,4/17
+kamyun <-> kamyunet,0.118,5/60,2/58
+ambulance <-> vanet,0.056,3/54,0/17
+kamyunet <-> minibus,0.054,1/58,2/55
+savari <-> taxi,0.05,0/60,3/60
+autobus <-> kamyun,0.017,0/59,1/60
