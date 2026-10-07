@@ -125,15 +125,15 @@ python -m src.evaluate --checkpoint checkpoints/resnet_ft.pt \
     --test-root data/raw/dataset/test
 
 ## Results summary
-Validation comparison table
-Experiment	Macro P	Macro R	Macro F1	Lowest-Recall	Lowest-Precision
-CNNbaseline |	0.612 | 0.600 |	0.588 |	vanet |	vanet
-Balancedbatches |	0.532 |	0.540 |	0.534 |	vanet |	vanet
-CrossEntropy\BCE|	0.490 |	0.538 |	0.501 |	vanet |	vanet
-Bestregularized\scheduled |	0.478 |	0.516 |	0.484 |	vanet |	vanet
-ResNet_feature
--extraction |	0.902 |	0.895 |	0.898 |	vanet |	vanet
-ResNet-fine-tuning |0.936 |	0.930 |	0.932|	vanet | vanet
+## Validation Comparison Table
+| Experiment | Macro P | Macro R | Macro F1 | Lowest-Recall | Lowest-Precision |
+|---|---:|---:|---:|---|---|
+| CNN baseline | 0.612 | 0.600 | 0.588 | vanet | vanet |
+| Balanced batches | 0.532 | 0.540 | 0.534 | vanet | vanet |
+| CrossEntropy / BCE | 0.490 | 0.538 | 0.501 | vanet | vanet |
+| Best regularized + scheduled | 0.478 | 0.516 | 0.484 | vanet | vanet |
+| ResNet feature extraction | 0.902 | 0.895 | 0.898 | vanet | vanet |
+| **ResNet fine-tuning** | **0.936** | **0.930** | **0.932** | vanet | vanet |
 
 Key findings
 Transfer learning dominates. ResNet-18 fine-tuning (0.932) beats CNN baseline (0.588) by +0.344 macro-F1.
