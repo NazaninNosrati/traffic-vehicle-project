@@ -1,0 +1,7 @@
+Experiment,macro_precision,macro_recall,macro_f1,lowest_recall_class,lowest_precision_class
+CNN baseline,0.612,0.6,0.588,vanet,vanet
+Balanced batches,0.532,0.54,0.534,vanet,vanet
+CrossEntropy / BCE comparison,0.49,0.538,0.501,vanet,vanet
+Best regularized + scheduled,0.478,0.516,0.484,vanet,vanet
+ResNet feature extraction,0.902,0.895,0.898,vanet,vanet
+ResNet fine-tuning,0.936,0.93,0.932,vanet,vanet
