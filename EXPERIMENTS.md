@@ -439,3 +439,89 @@ All 12 errors have confidence > 0.85. The model is overconfident when it is wron
 - taxi → savari errors are one-directional, suggesting taxi is a strict subset (sedan with sign).
 
 **Decision:** No relabeling of val data. Errors are reviewed for analysis only. Changing validation labels would invalidate prior experiment comparisons; any justified relabeling would be done on training data followed by retraining.
+
+
+## — Unseen Class Analysis: neysan_val
+
+**Setup:** evaluate ResNet-FT on 210 images of the unseen `neysan` class (Nissan pickup), which was excluded from training.
+
+**Goal:** A well-calibrated model should give LOW confidence on unseen data — signaling uncertainty rather than forcing a wrong class.
+
+**Results:**
+
+| Metric | Value |
+|---|---:|
+| N images | 210 |
+| Mean confidence | 0.803 |
+| Median confidence | 0.850 |
+| % conf < 0.5 | 10.0% |
+| % conf < 0.7 | 25.7% |
+
+**Predicted classes distribution:**
+| Predicted as | Count | % |
+|---|---:|---:|
+| vanet | 144 | 68.6% |
+| kamyunet | 30 | 14.3% |
+| kamyun | 15 | 7.1% |
+| minibus | 9 | 4.3% |
+| savari | 8 | 3.8% |
+| autobus | 2 | 1.0% |
+| ambulance | 1 | 0.5% |
+| taxi | 1 | 0.5% |
+
+**Key findings:**
+
+1. **Model is overconfident on unseen data.** Mean confidence = 0.80, which is comparable to its confidence on validation data. A well-calibrated model should be less confident on out-of-distribution inputs.
+
+2. **Strong bias toward `vanet` (68.6%).** This is expected: neysan is visually a pickup truck, and vanet is the training class for pickup trucks. The model has learned a reasonable proxy but cannot say "this is a different kind of pickup".
+
+3. **needs_review threshold of 0.7 is insufficient.** Only 25.7% of unseen images fall below 0.7, meaning 74.3% would be silently misclassified with high confidence. For deployment, this is dangerous.
+
+**Recommendations:**
+
+- **Lower the threshold** OR use **calibration** (temperature scaling, MC-dropout).
+- **Accept that the model cannot detect unseen classes without explicit training** — a closed-set classifier always forces a label.
+- For production: add an "unknown" class OR use a distance-based OOD detector (e.g., Mahalanobis on embeddings).
+
+**Connection to project:** The project asks for `needs_review=True` below a threshold such as 0.70, chosen from validation. This analysis shows that 0.70 is *necessary but not sufficient* — it filters uncertain validation predictions but does not reliably filter unseen-class images. A different mechanism (OOD detection) is required for production safety.
+
+## — needs_review Threshold Selection (ResNet-FT, validation only)
+
+**Setup:** 423 validation images, softmax confidence from ResNet-FT.
+
+**Confidence distribution:**
+
+| Group | N | % | Mean conf | Median conf |
+|---|---:|---:|---:|---:|
+| Correct | 400 | 94.6% | 0.980 | 1.000 |
+| Wrong | 23 | 5.4% | 0.848 | 0.872 |
+
+**Threshold sweep:**
+
+| Threshold | Coverage | Accuracy (above) | needs_review |
+|---:|---:|---:|---:|
+| 0.50 | 99.5% | 0.945 | 0.5% |
+| 0.60 | 98.1% | 0.947 | 1.9% |
+| **0.70** | **96.9%** | **0.954** | **3.1%** |
+| 0.80 | 94.8% | 0.963 | 5.2% |
+| 0.90 | 92.4% | 0.974 | 7.6% |
+
+**Decision:** threshold = **0.70**, following the project's recommended starting point.
+
+**Rationale:**
+- Coverage: 96.9% of validation predictions retained.
+- Accuracy on retained predictions: 95.4% (vs 94.6% overall).
+- needs_review rate: 3.1% — light, deployable in a human-in-the-loop pipeline.
+- Higher thresholds (0.80, 0.90) improve accuracy marginally (96.3%, 97.4%) but flag more samples (5.2%, 7.6%).
+
+**Critical observation — overconfidence:**
+- **Median confidence on correct predictions = 1.000**. Half of all correct predictions are perfectly confident — a clear sign of miscalibration.
+- **Mean confidence on wrong predictions = 0.848**. Even errors are high-confidence; 12 of 23 errors have confidence > 0.85.
+- The correct-vs-wrong gap is only 0.13, meaning confidence is a weak separator between right and wrong.
+
+**Implications:**
+1. **Threshold 0.70 is permissive.** Because the model is overconfident, 96.9% of samples pass — including most errors. The gate is weak.
+2. **The threshold was selected on validation only** (as required by the project). It was not tuned on test data.
+3. **Combined with the unseen-class result** (neysan_val mean confidence = 0.803), a softmax threshold alone cannot reliably detect out-of-distribution inputs. For production, temperature scaling or OOD detection is necessary.
+
+**Conclusion:** Threshold 0.70 is adopted as a conservative, deployable gate. It is documented that (a) this gate reflects the model's overconfidence and (b) it does not address unseen classes. Both limitations are acknowledged rather than hidden.

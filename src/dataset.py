@@ -171,3 +171,20 @@ def simulate_imbalance(targets, keep_fraction, seed):
         n = max(1, round(len(idx) * keep_fraction.get(int(c), 1.0)))
         keep.extend(rng.choice(idx, size=n, replace=False).tolist())
     return sorted(keep)
+
+def check_label_conflicts(dupes_df, hash_col):
+    """
+    Find groups of duplicates (by hash_col) that have conflicting class labels.
+    
+    Args:
+        dupes_df: DataFrame of duplicate rows
+        hash_col: column name to group by (e.g. 'md5' or 'avghash')
+    
+    Returns:
+        list of DataFrames, each a conflicting group
+    """
+    conflict = []
+    for h, group in dupes_df.groupby(hash_col):
+        if group['class'].nunique() > 1:
+            conflict.append(group)
+    return conflict

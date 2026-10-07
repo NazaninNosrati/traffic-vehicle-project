@@ -1,6 +1,9 @@
 import os
+from pathlib import Path
 
+import numpy as np
 import torch
+from PIL import Image
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from torch.utils.data import DataLoader
 from torchvision import datasets
@@ -95,3 +98,49 @@ def rank_confused_pairs(cm_norm, class_names, top=5):
         for j in range(i + 1, n):
             pairs.append((class_names[i], class_names[j], cm_norm[i, j] + cm_norm[j, i]))
     return sorted(pairs, key=lambda x: x[2], reverse=True)[:top]
+
+@torch.no_grad()
+def evaluate_unseen(model, test_root, device, class_names,
+                    img_size=128, batch_size=64):
+    _, eval_tf = get_transforms(img_size, augment=False)
+    exts = ('.jpg', '.jpeg', '.png')
+    paths = [p for p in Path(test_root).iterdir() if p.suffix.lower() in exts]
+    
+    if not paths:
+        raise FileNotFoundError(f"No images found in {test_root}")
+    
+    print(f"Found {len(paths)} images in {test_root}")
+    
+    all_probs = []
+    for p in paths:
+        with Image.open(p) as img:
+            tensor = eval_tf(img.convert('RGB')).unsqueeze(0).to(device)
+        probs = torch.softmax(model(tensor), dim=1)[0]
+        all_probs.append(probs.cpu().numpy())
+    
+    all_probs = np.array(all_probs)
+    max_confs = all_probs.max(axis=1)
+    preds = all_probs.argmax(axis=1)
+    
+    print(f"\n═══ Unseen Class Analysis ({len(paths)} images) ═══")
+    print(f"Mean confidence:   {max_confs.mean():.3f}")
+    print(f"Median confidence: {np.median(max_confs):.3f}")
+    print(f"% conf < 0.5:      {(max_confs < 0.5).mean()*100:.1f}%")
+    print(f"% conf < 0.7:      {(max_confs < 0.7).mean()*100:.1f}%")
+    
+    pred_names = [class_names[i] for i in preds]
+    unique, counts = np.unique(pred_names, return_counts=True)
+    print(f"\nPredicted classes (should be spread if model is uncertain):")
+    for u, c in sorted(zip(unique, counts), key=lambda x: -x[1]):
+        print(f"  {u}: {c}")
+    
+    return {
+        'n': len(paths),
+        'mean_conf': float(max_confs.mean()),
+        'median_conf': float(np.median(max_confs)),
+        'frac_below_0.5': float((max_confs < 0.5).mean()),
+        'frac_below_0.7': float((max_confs < 0.7).mean()),
+        'probs': all_probs,
+        'preds': preds,
+        'pred_names': pred_names,
+    }
