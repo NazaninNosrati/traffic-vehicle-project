@@ -126,6 +126,7 @@ python -m src.evaluate --checkpoint checkpoints/resnet_ft.pt \
 
 ## Results summary
 ## Validation Comparison Table
+
 | Experiment | Macro P | Macro R | Macro F1 | Lowest-Recall | Lowest-Precision |
 |---|---:|---:|---:|---|---|
 | CNN baseline | 0.612 | 0.600 | 0.588 | vanet | vanet |
