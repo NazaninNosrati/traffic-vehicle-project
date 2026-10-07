@@ -307,3 +307,15 @@ The model is heavily overfit (train_loss = 0.009, val_loss = 0.577, gap = 0.568)
 **Result:** macro_F1=0.484 (vs baseline_v2 0.565) → **−0.081**
 **Lowest-recall class:** vanet
 **Notes:** Combining two regularizers on small data caused underfitting. kamyunet recall collapsed to 0.12. Since the baseline already showed a small gap (0.111), additional regularization only hurt. This is a negative result — a valid scientific finding: **more regularization ≠ better performance** when the model is already well-regularized.
+
+## — Ablation: BCE on cleaned data (bce_v2)
+
+**Changed:** loss CE → BCE on cleaned dataset
+**Fixed:** CNNBaseline, seed 42, AdamW lr=1e-3, 20 epochs, batch 32, no aug, no dropout
+**Config:** run `bce_v2` (results/experiments.csv)
+**Result:** macro_F1=0.501 (vs baseline_v2 0.565) → **−0.064**
+**Delta vs v1 BCE (0.525):** −0.024
+
+**Notes:** BCE confirms its consistent underperformance on this single-label task, both on the old data (−0.040) and cleaned data (−0.064). The gap exceeds the noise threshold (~0.03). kamyunet recall collapsed to 0.05, continuing the BCE pattern of hurting hard classes. As hypothesized, the 7-zero / 1-one BCE target dilutes the positive signal and class competition is removed; this is not fixed by cleaning the data.
+
+**Conclusion:** CE remains the right choice for this single-label problem. Cleaning the data did not change the relative ranking of losses.
