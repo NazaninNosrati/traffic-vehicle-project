@@ -525,3 +525,19 @@ All 12 errors have confidence > 0.85. The model is overconfident when it is wron
 3. **Combined with the unseen-class result** (neysan_val mean confidence = 0.803), a softmax threshold alone cannot reliably detect out-of-distribution inputs. For production, temperature scaling or OOD detection is necessary.
 
 **Conclusion:** Threshold 0.70 is adopted as a conservative, deployable gate. It is documented that (a) this gate reflects the model's overconfidence and (b) it does not address unseen classes. Both limitations are acknowledged rather than hidden.
+
+## Domain Challenge: Ambulance vs Vanet
+
+**Observation:** Many ambulances in the dataset are built on Mazda pickup (vanet) chassis. Visually, they share the same base shape — only emergency equipment (lights, markings, sirens) differs.
+
+**Impact:** The model systematically confuses ambulance with vanet. In the confusion matrix, this appears as ambulance → vanet errors.
+
+**Interpretation:** This is a **domain-level ambiguity**, not label noise. The visual features that distinguish ambulance from vanet are subtle (equipment) and may be partially occluded or low-resolution.
+
+**Possible mitigations:**
+1. **Higher resolution input** — 224 → 384 to capture small equipment.
+2. **Targeted augmentation** — random crops that include the equipment region.
+3. **Class weights** — upweight ambulance during training.
+4. **Additional features** — color (ambulances often red/white) if the model uses RGB effectively.
+
+**Action taken:** Documented. No relabeling. This is a real-world constraint of the traffic-monitoring domain.
